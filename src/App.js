@@ -1,12 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 import ForceGraph2D from "react-force-graph-2d";
 import { sampleNodalMap } from "./react_nodalmap_test_data";
 
 function App() {
-  const [graphData, setGraphData] = useState({});
-  // can memoize
-  useEffect(() => {
+  // memoize data
+  const graphData = useMemo(() => {
     let nodes = [];
     let links = [];
     sampleNodalMap.forEach((org) => {
@@ -43,21 +42,16 @@ function App() {
         }),
       ];
     });
-    setGraphData({
+    return {
       nodes,
       links,
-    });
+    };
   }, []);
 
   const [highlightNodes, setHighlightNodes] = useState([]);
   const [highlightLinks, setHighlightLinks] = useState([]);
   const [selectedNodes, setSelectedNodes] = useState([]);
   const [history, setHistory] = useState([]);
-
-  // const updateHighlight = () => {
-  //   setHighlightNodes(highlightNodes);
-  //   setHighlightLinks(highlightLinks);
-  // };
 
   const isNodePresentInLink = (link, nodeId) => {
     return nodeId === link.source.id || nodeId === link.target.id;
@@ -71,7 +65,7 @@ function App() {
     }
   };
 
-  const checkIsNodeCommon = (id) => {
+  const checkIsNodeCommonForAll = (id) => {
     const newNodeLinks = graphData.links.filter((link) => {
       return id === link.source.id || id === link.target.id;
     });
@@ -81,16 +75,9 @@ function App() {
   };
 
   const handleNodeClick = (selectedNode) => {
-    // highlightNodes.clear();
-    // highlightLinks.clear();
     // new selection
-    console.log(
-      "csa",
-      selectedNodes.some((sn) => sn.index === selectedNode.index)
-    );
     if (!selectedNodes.some((sn) => sn.index === selectedNode.index)) {
       const tempSelectedNodes = [...selectedNodes, selectedNode];
-      console.log("data", selectedNode, graphData.links, graphData.nodes);
       const newNodeLinks = graphData.links.filter((link) => {
         return (
           selectedNode.id === link.source.id ||
@@ -104,7 +91,7 @@ function App() {
         highlightLinks.forEach((link1) =>
           newNodeLinks.forEach((link2) => {
             const commonId = isCommonNodePresent(link1, link2);
-            if (commonId && checkIsNodeCommon(commonId)) {
+            if (commonId && checkIsNodeCommonForAll(commonId)) {
               hlLinks = [...hlLinks, link1, link2];
             }
           })
@@ -143,7 +130,6 @@ function App() {
         );
         setHighlightLinks(nodesProps.highlightLinks);
         setHighlightNodes(nodesProps.highlightNodes);
-        console.log("nodesProps", history, nodesProps, tempSelectedNodes);
       } else {
         setHighlightLinks([]);
         setHighlightNodes([]);
@@ -152,27 +138,19 @@ function App() {
     }
   };
 
-  console.log(
-    "highlightLinks",
-    highlightLinks,
-    highlightNodes,
-    selectedNodes,
-    history
-  );
+  // console.log(
+  //   "data",
+  //   highlightLinks,
+  //   highlightNodes,
+  //   selectedNodes,
+  //   history
+  // );
 
   return (
     <div className="App">
       {graphData?.nodes?.length && (
         <ForceGraph2D
-          // nodeLabel={(d) => d.name}
-          nodeColor={(d) => {
-            // return highlightNodes.some((hl) => hl.index === d.index)
-            return highlightNodes.some((hl) => hl.index === d.index)
-              ? "red"
-              : "";
-          }}
           linkColor={(link) => {
-            // console.log("sas", highlightLinks, link);
             return highlightLinks.some((hl) => hl.index === link.index)
               ? "red"
               : "grey";
