@@ -7,7 +7,6 @@ function App() {
   const [graphData, setGraphData] = useState({});
   // can memoize
   useEffect(() => {
-    // console.log("sampleNodalMap", sampleNodalMap);
     let nodes = [];
     let links = [];
     sampleNodalMap.forEach((org) => {
@@ -44,7 +43,6 @@ function App() {
         }),
       ];
     });
-    console.log("nodes", nodes, "links", links);
     setGraphData({
       nodes,
       links,
@@ -53,40 +51,114 @@ function App() {
 
   const [highlightNodes, setHighlightNodes] = useState([]);
   const [highlightLinks, setHighlightLinks] = useState([]);
-  const [hoverNode, setHoverNode] = useState(null);
+  const [selectedNodes, setSelectedNodes] = useState([]);
+  const [history, setHistory] = useState([]);
 
   // const updateHighlight = () => {
   //   setHighlightNodes(highlightNodes);
   //   setHighlightLinks(highlightLinks);
   // };
 
-  const handleNodeHover = (selectedNode) => {
+  const isNodePresentInLink = (link, nodeId) => {
+    return nodeId === link.source.id || nodeId === link.target.id;
+  };
+
+  const isCommonNodePresent = (link1, link2) => {
+    if (isNodePresentInLink(link1, link2.source.id)) {
+      return link2.source.id;
+    } else if (isNodePresentInLink(link1, link2.target.id)) {
+      return link2.target.id;
+    }
+  };
+
+  const checkIsNodeCommon = (id) => {
+    const newNodeLinks = graphData.links.filter((link) => {
+      return id === link.source.id || id === link.target.id;
+    });
+    return selectedNodes.every((sn) =>
+      newNodeLinks.some((link) => isNodePresentInLink(link, sn.id))
+    );
+  };
+
+  const handleNodeClick = (selectedNode) => {
     // highlightNodes.clear();
     // highlightLinks.clear();
-    if (selectedNode) {
-      // highlightNodes.add(selectedNode);
+    // new selection
+    console.log(
+      "csa",
+      selectedNodes.some((sn) => sn.index === selectedNode.index)
+    );
+    if (!selectedNodes.some((sn) => sn.index === selectedNode.index)) {
+      const tempSelectedNodes = [...selectedNodes, selectedNode];
       console.log("data", selectedNode, graphData.links, graphData.nodes);
-      const hlLinks = graphData.links.filter(
-        (link) =>
+      const newNodeLinks = graphData.links.filter((link) => {
+        return (
           selectedNode.id === link.source.id ||
           selectedNode.id === link.target.id
-      );
-
-      setHighlightNodes([
-        selectedNode,
+        );
+      });
+      let hlLinks = [];
+      if (tempSelectedNodes.length === 1) {
+        hlLinks = [...newNodeLinks];
+      } else {
+        highlightLinks.forEach((link1) =>
+          newNodeLinks.forEach((link2) => {
+            const commonId = isCommonNodePresent(link1, link2);
+            if (commonId && checkIsNodeCommon(commonId)) {
+              hlLinks = [...hlLinks, link1, link2];
+            }
+          })
+        );
+      }
+      const hlNodes = [
+        ...tempSelectedNodes,
         ...graphData.nodes.filter((node) => {
           return hlLinks.some(
             (link) => link.target.id === node.id || link.source.id === node.id
           );
         }),
-      ]);
+      ];
+      setHighlightNodes(hlNodes);
       setHighlightLinks(hlLinks);
+      setSelectedNodes(tempSelectedNodes || null);
+      setHistory([
+        ...history,
+        {
+          highlightLinks: hlLinks,
+          highlightNodes: hlNodes,
+          selectedNodes: tempSelectedNodes,
+        },
+      ]);
+    } else {
+      const tempSelectedNodes = selectedNodes.filter(
+        (n) => n.index !== selectedNode.index
+      );
+      if (tempSelectedNodes.length) {
+        const nodesProps = history.find(
+          (hx) =>
+            hx.selectedNodes.length === tempSelectedNodes.length &&
+            tempSelectedNodes.every((node) =>
+              hx.selectedNodes.some((sn) => sn.index === node.index)
+            )
+        );
+        setHighlightLinks(nodesProps.highlightLinks);
+        setHighlightNodes(nodesProps.highlightNodes);
+        console.log("nodesProps", history, nodesProps, tempSelectedNodes);
+      } else {
+        setHighlightLinks([]);
+        setHighlightNodes([]);
+      }
+      setSelectedNodes(tempSelectedNodes);
     }
-
-    setHoverNode(selectedNode || null);
   };
 
-  console.log("highlightLinks", highlightLinks, highlightNodes);
+  console.log(
+    "highlightLinks",
+    highlightLinks,
+    highlightNodes,
+    selectedNodes,
+    history
+  );
 
   return (
     <div className="App">
@@ -118,7 +190,7 @@ function App() {
             ctx.textBaseline = "middle";
             ctx.fillText(label, node.x, node.y);
           }}
-          onNodeClick={handleNodeHover}
+          onNodeClick={handleNodeClick}
           graphData={graphData}
         />
       )}
